@@ -1,0 +1,25 @@
+{
+  "doc_type": "notice_of_assessment",
+  "display_name": "Notice of Assessment",
+  "version": "1.0",
+  "fields": [
+    {
+      "name": "tax_year",
+      "type": "string",
+      "required": true,
+      "synonyms": ["year"]
+    },
+    {
+      "name": "taxpayer_name",
+      "type": "string",
+      "required": true,
+      "synonyms": ["name"]
+    },
+    {
+      "name": "line_15000_total_income",
+      "type": "number",
+      "required": true,
+      "synonyms": ["total_income", "line15000"]
+    }
+  ]
+}

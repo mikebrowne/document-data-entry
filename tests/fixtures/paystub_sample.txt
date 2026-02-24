@@ -1,0 +1,5 @@
+Paystub
+employee_name: Jane Doe
+employer_name: ACME Corp
+net_pay: 2450.25
+pay period: 2026-01-01 to 2026-01-15

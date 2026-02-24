@@ -1,0 +1,25 @@
+{
+  "doc_type": "bank_statement",
+  "display_name": "Bank Statement",
+  "version": "1.0",
+  "fields": [
+    {
+      "name": "account_holder_name",
+      "type": "string",
+      "required": true,
+      "synonyms": ["customer_name"]
+    },
+    {
+      "name": "account_number",
+      "type": "string",
+      "required": true,
+      "synonyms": ["acct_no"]
+    },
+    {
+      "name": "statement_period",
+      "type": "string",
+      "required": true,
+      "synonyms": ["period"]
+    }
+  ]
+}

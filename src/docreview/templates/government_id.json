@@ -1,0 +1,25 @@
+{
+  "doc_type": "government_id",
+  "display_name": "Government ID",
+  "version": "1.0",
+  "fields": [
+    {
+      "name": "full_name",
+      "type": "string",
+      "required": true,
+      "synonyms": ["name"]
+    },
+    {
+      "name": "id_number",
+      "type": "string",
+      "required": true,
+      "synonyms": ["document_number", "license_number"]
+    },
+    {
+      "name": "expiry_date",
+      "type": "string",
+      "required": true,
+      "synonyms": ["expires"]
+    }
+  ]
+}

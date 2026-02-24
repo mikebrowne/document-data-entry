@@ -1,0 +1,25 @@
+{
+  "doc_type": "paystub",
+  "display_name": "Paystub",
+  "version": "1.0",
+  "fields": [
+    {
+      "name": "employee_name",
+      "type": "string",
+      "required": true,
+      "synonyms": ["employee", "name"]
+    },
+    {
+      "name": "employer_name",
+      "type": "string",
+      "required": true,
+      "synonyms": ["employer", "company_name"]
+    },
+    {
+      "name": "net_pay",
+      "type": "number",
+      "required": true,
+      "synonyms": ["net", "take_home"]
+    }
+  ]
+}

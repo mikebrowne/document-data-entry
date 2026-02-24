@@ -1,0 +1,25 @@
+{
+  "doc_type": "t4",
+  "display_name": "T4",
+  "version": "1.0",
+  "fields": [
+    {
+      "name": "employee_name",
+      "type": "string",
+      "required": true,
+      "synonyms": ["recipient_name"]
+    },
+    {
+      "name": "employer_name",
+      "type": "string",
+      "required": true,
+      "synonyms": ["payer_name"]
+    },
+    {
+      "name": "employment_income",
+      "type": "number",
+      "required": true,
+      "synonyms": ["box14", "income"]
+    }
+  ]
+}
