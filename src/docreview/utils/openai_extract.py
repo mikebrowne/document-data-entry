@@ -16,7 +16,7 @@ def openai_vision_extract(image_data: list[bytes], api_key: str, model: str = "g
     client = OpenAI(api_key=api_key)
     content: list[dict[str, object]] = [
         {
-            "type": "text",
+            "type": "input_text",
             "text": (
                 "Extract all visible document text. Preserve line breaks and key-value structure. "
                 "Do not summarize or infer missing values."
@@ -27,8 +27,8 @@ def openai_vision_extract(image_data: list[bytes], api_key: str, model: str = "g
         encoded = base64.b64encode(image).decode("ascii")
         content.append(
             {
-                "type": "image_url",
-                "image_url": {"url": f"data:image/png;base64,{encoded}"},
+                "type": "input_image",
+                "image_url": f"data:image/png;base64,{encoded}",
             }
         )
 

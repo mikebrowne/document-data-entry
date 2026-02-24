@@ -66,11 +66,11 @@ def openai_field_fill(
     )
 
     content = [
-        {"type": "text", "text": prompt},
-        {"type": "text", "text": f"TEMPLATE_FIELDS:\n{json.dumps(_template_payload(template), ensure_ascii=True)}"},
-        {"type": "text", "text": f"DOCUMENT_TEXT:\n{text}"},
+        {"type": "input_text", "text": prompt},
+        {"type": "input_text", "text": f"TEMPLATE_FIELDS:\n{json.dumps(_template_payload(template), ensure_ascii=True)}"},
+        {"type": "input_text", "text": f"DOCUMENT_TEXT:\n{text}"},
         {
-            "type": "text",
+            "type": "input_text",
             "text": (
                 "Return exactly this JSON shape:\n"
                 '{"field_values":[{"field_name":"...", "value":null, "confidence":0.0, "evidence":null, "notes":null}]}\n'
