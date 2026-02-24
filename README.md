@@ -21,12 +21,25 @@ Deterministic document review engine (CLI + library) for single-document process
 
 ## Quick start
 
+**Windows (PowerShell):**
+
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e .[dev,ocr]
 pytest
 ```
+
+**macOS / Linux:**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e '.[dev,ocr]'
+pytest
+```
+
+See [docs/setup-windows.md](docs/setup-windows.md) or [docs/setup-macos.md](docs/setup-macos.md) for full setup guides.
 
 ## CLI
 
