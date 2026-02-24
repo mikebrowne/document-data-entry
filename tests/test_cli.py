@@ -4,6 +4,8 @@ import json
 from typer.testing import CliRunner
 
 from docreview.cli import app
+from docreview.core.enums import PipelineStage
+from docreview.core.schemas import FieldProposal, NormalizeSection
 
 runner = CliRunner()
 
@@ -20,6 +22,7 @@ def test_doctor_json_format() -> None:
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert "openai_api_key_present" in payload
+    assert "openai_installed" in payload
 
 
 def test_run_summarize_validate_json_and_json_summary(tmp_path: Path) -> None:
@@ -251,3 +254,120 @@ def test_run_returns_blocking_code_for_unclassifiable_input(tmp_path: Path) -> N
         ["run", "--input", str(input_file), "--output", str(output_dir)],
     )
     assert result.exit_code == 3
+
+
+def test_run_auto_mode_falls_back_to_regex_with_handoff(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    input_file = tmp_path / "paystub.txt"
+    output_dir = tmp_path / "artifacts"
+    input_file.write_text(
+        "Paystub\nemployee_name: Jane Doe\nemployer_name: ACME Corp\nnet_pay: 1000",
+        encoding="utf-8",
+    )
+    result = runner.invoke(
+        app,
+        ["run", "--input", str(input_file), "--output", str(output_dir)],
+    )
+    assert result.exit_code == 0
+    artifact = sorted(output_dir.glob("*.json"))[0]
+    payload = json.loads(artifact.read_text(encoding="utf-8"))
+    assert any(
+        h["stage"] == "normalize" and h["reason"] == "invalid_input" and h["blocking"] is False
+        for h in payload["handoffs"]
+    )
+    assert payload["normalize"]["fields"]["employee_name"][0]["source"] == "extract_text"
+
+
+def test_run_llm_mode_missing_key_is_blocking(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    input_file = tmp_path / "paystub.txt"
+    output_dir = tmp_path / "artifacts"
+    input_file.write_text("Paystub\nemployee_name: Jane Doe", encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--input",
+            str(input_file),
+            "--output",
+            str(output_dir),
+            "--fill-mode",
+            "llm",
+        ],
+    )
+    assert result.exit_code == 3
+
+
+def test_run_regex_mode_forces_regex(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    input_file = tmp_path / "paystub.txt"
+    output_dir = tmp_path / "artifacts"
+    input_file.write_text("Paystub\nemployee_name: Jane Doe", encoding="utf-8")
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--input",
+            str(input_file),
+            "--output",
+            str(output_dir),
+            "--fill-mode",
+            "regex",
+        ],
+    )
+    assert result.exit_code == 0
+    artifact = sorted(output_dir.glob("*.json"))[0]
+    payload = json.loads(artifact.read_text(encoding="utf-8"))
+    assert not any(h["stage"] == "normalize" and h["reason"] == "invalid_input" for h in payload["handoffs"])
+
+
+def test_run_llm_mode_uses_field_model(tmp_path: Path, monkeypatch) -> None:
+    import docreview.stages.pipeline as pipeline_module
+
+    captured: dict[str, str] = {}
+
+    def fake_normalize_llm(
+        text: str,
+        template,
+        created_at: str,
+        *,
+        api_key: str,
+        model: str,
+    ) -> NormalizeSection:
+        captured["model"] = model
+        proposal = FieldProposal(
+            source="openai_field_fill",
+            value="Jane Doe",
+            confidence=0.93,
+            stage=PipelineStage.NORMALIZE,
+            created_at=created_at,
+            notes="evidence=employee_name: Jane Doe",
+        )
+        return NormalizeSection(ok=True, fields={"employee_name": [proposal]})
+
+    monkeypatch.setattr(pipeline_module, "normalize_llm", fake_normalize_llm)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    input_file = tmp_path / "paystub.txt"
+    output_dir = tmp_path / "artifacts"
+    input_file.write_text("Paystub\nemployee_name: Jane Doe", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--input",
+            str(input_file),
+            "--output",
+            str(output_dir),
+            "--fill-mode",
+            "llm",
+            "--field-model",
+            "gpt-4.1-mini",
+        ],
+    )
+    assert result.exit_code == 0
+    assert captured["model"] == "gpt-4.1-mini"
+    artifact = sorted(output_dir.glob("*.json"))[0]
+    payload = json.loads(artifact.read_text(encoding="utf-8"))
+    assert payload["normalize"]["fields"]["employee_name"][0]["source"] == "openai_field_fill"

@@ -5,9 +5,10 @@ import re
 from docreview.core.enums import PipelineStage
 from docreview.core.schemas import FieldProposal, NormalizeSection, append_field_proposal
 from docreview.core.template_loader import DocumentTemplate
+from docreview.utils.openai_field_fill import openai_field_fill
 
 
-def normalize(
+def normalize_regex(
     text: str,
     template: DocumentTemplate,
     created_at: str,
@@ -47,3 +48,39 @@ def normalize(
             fields = append_field_proposal(fields, field.name, proposal)
 
     return NormalizeSection(ok=True, fields=fields)
+
+
+def normalize_llm(
+    text: str,
+    template: DocumentTemplate,
+    created_at: str,
+    *,
+    api_key: str,
+    model: str,
+) -> NormalizeSection:
+    fields: dict[str, list[FieldProposal]] = {}
+    for item in openai_field_fill(text=text, template=template, api_key=api_key, model=model):
+        if item.value is None:
+            continue
+        notes = item.notes
+        if item.evidence:
+            notes = f"evidence={item.evidence}" if not notes else f"{notes} | evidence={item.evidence}"
+        proposal = FieldProposal(
+            source="openai_field_fill",
+            value=item.value,
+            confidence=item.confidence,
+            stage=PipelineStage.NORMALIZE,
+            created_at=created_at,
+            notes=notes,
+        )
+        fields = append_field_proposal(fields, item.field_name, proposal)
+    return NormalizeSection(ok=True, fields=fields)
+
+
+def normalize(
+    text: str,
+    template: DocumentTemplate,
+    created_at: str,
+) -> NormalizeSection:
+    """Backward-compatible alias for regex normalization."""
+    return normalize_regex(text=text, template=template, created_at=created_at)

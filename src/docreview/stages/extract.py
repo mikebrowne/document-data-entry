@@ -13,6 +13,7 @@ def extract(
     extension: str,
     created_at: str,
     api_key: str | None = None,
+    ocr_model: str = "gpt-4o",
 ) -> tuple[ExtractSection, list[Handoff]]:
     handoffs: list[Handoff] = []
     ext = extension.lower()
@@ -88,7 +89,7 @@ def extract(
         if api_key:
             images = pdf_to_images(data)
             if images:
-                text = openai_vision_extract(images, api_key=api_key, model="gpt-4o")
+                text = openai_vision_extract(images, api_key=api_key, model=ocr_model)
                 if text:
                     return (
                         ExtractSection(
@@ -96,7 +97,7 @@ def extract(
                             text=text,
                             used_ocr_stub=False,
                             method="openai_vision",
-                            model="gpt-4o",
+                            model=ocr_model,
                             page_count=len(images),
                         ),
                         handoffs,
@@ -123,7 +124,7 @@ def extract(
         )
 
     if ext in {".png", ".jpg", ".jpeg", ".tiff", ".webp"} and api_key:
-        text = openai_vision_extract([data], api_key=api_key, model="gpt-4o")
+        text = openai_vision_extract([data], api_key=api_key, model=ocr_model)
         if text:
             return (
                 ExtractSection(
@@ -131,7 +132,7 @@ def extract(
                     text=text,
                     used_ocr_stub=False,
                     method="openai_vision",
-                    model="gpt-4o",
+                    model=ocr_model,
                     page_count=1,
                 ),
                 handoffs,

@@ -15,6 +15,8 @@ Included scope:
 - Pydantic contracts and enums.
 - JSON template system and Markdown generator.
 - Pure pipeline stage logic (ingest, extract, classify, normalize, validate, render).
+- OpenAI vision OCR integration (optional, environment-gated).
+- LLM-assisted field filling with deterministic regex fallback.
 - Typer CLI (`run`, `summarize`, `validate-json`, `doctor`).
 - Local tests with no external API dependency.
 

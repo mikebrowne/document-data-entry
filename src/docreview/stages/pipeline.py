@@ -3,29 +3,47 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from docreview.core.enums import PipelineStage
-from docreview.core.schemas import Audit, DocumentMetadata, DocumentReviewPackage
+from docreview.core.enums import HandoffAction, HandoffReason, PipelineStage
+from docreview.core.schemas import Audit, DocumentMetadata, DocumentReviewPackage, Handoff
 from docreview.core.template_loader import get_template, load_templates
 from docreview.stages.classify import classify
 from docreview.stages.extract import extract
 from docreview.stages.ingest import ingest
-from docreview.stages.normalize import normalize
+from docreview.stages.normalize import normalize_llm, normalize_regex
 from docreview.stages.render import render
 from docreview.stages.validate import validate
+from docreview.utils.openai_field_fill import FieldFillError
 
 
-def run_pipeline(input_path: Path, template_dir: Path, created_at: str) -> DocumentReviewPackage:
+def _env_or_value(value: str | None, env_key: str, default: str) -> str:
+    return value or os.environ.get(env_key, default)
+
+
+def run_pipeline(
+    input_path: Path,
+    template_dir: Path,
+    created_at: str,
+    *,
+    fill_mode: str | None = None,
+    ocr_model: str | None = None,
+    field_model: str | None = None,
+) -> DocumentReviewPackage:
     ingest_section, data = ingest(input_path)
     audit: list[Audit] = [
         Audit(stage=PipelineStage.INGEST, event="completed", detail="Ingest completed", created_at=created_at)
     ]
     handoffs = []
+    resolved_fill_mode = _env_or_value(fill_mode, "DOCREVIEW_FILL_MODE", "auto").lower()
+    resolved_ocr_model = _env_or_value(ocr_model, "DOCREVIEW_OCR_MODEL", "gpt-4o")
+    resolved_field_model = field_model or os.environ.get("DOCREVIEW_FIELD_MODEL") or resolved_ocr_model
+    api_key = os.environ.get("OPENAI_API_KEY")
 
     extract_section, extract_handoffs = extract(
         data=data,
         extension=input_path.suffix,
         created_at=created_at,
-        api_key=os.environ.get("OPENAI_API_KEY"),
+        api_key=api_key,
+        ocr_model=resolved_ocr_model,
     )
     handoffs.extend(extract_handoffs)
     audit.append(
@@ -45,7 +63,59 @@ def run_pipeline(input_path: Path, template_dir: Path, created_at: str) -> Docum
 
     template = get_template(templates, classify_section.document_type)
 
-    normalize_section = normalize(extract_section.text, template=template, created_at=created_at)
+    llm_available = bool(api_key)
+    if resolved_fill_mode == "regex":
+        normalize_section = normalize_regex(extract_section.text, template=template, created_at=created_at)
+        audit.append(
+            Audit(
+                stage=PipelineStage.NORMALIZE,
+                event="mode_selected",
+                detail="Normalization mode: regex",
+                created_at=created_at,
+            )
+        )
+    else:
+        try:
+            if resolved_fill_mode == "llm" and not llm_available:
+                raise FieldFillError("LLM mode requested but OPENAI_API_KEY is missing.")
+            if resolved_fill_mode == "auto" and not llm_available:
+                raise FieldFillError("LLM unavailable (OPENAI_API_KEY missing); falling back to regex.")
+            normalize_section = normalize_llm(
+                extract_section.text,
+                template=template,
+                created_at=created_at,
+                api_key=api_key or "",
+                model=resolved_field_model,
+            )
+            audit.append(
+                Audit(
+                    stage=PipelineStage.NORMALIZE,
+                    event="mode_selected",
+                    detail=f"Normalization mode: llm ({resolved_field_model})",
+                    created_at=created_at,
+                )
+            )
+        except FieldFillError as exc:
+            blocking = resolved_fill_mode == "llm"
+            handoffs.append(
+                Handoff(
+                    stage=PipelineStage.NORMALIZE,
+                    reason=HandoffReason.INVALID_INPUT,
+                    action=HandoffAction.MANUAL_REVIEW,
+                    message=f"LLM field fill unavailable: {exc}",
+                    created_at=created_at,
+                    blocking=blocking,
+                )
+            )
+            normalize_section = normalize_regex(extract_section.text, template=template, created_at=created_at)
+            audit.append(
+                Audit(
+                    stage=PipelineStage.NORMALIZE,
+                    event="fallback",
+                    detail=f"LLM field fill failed; fallback to regex ({exc})",
+                    created_at=created_at,
+                )
+            )
     audit.append(
         Audit(stage=PipelineStage.NORMALIZE, event="completed", detail="Normalization completed", created_at=created_at)
     )

@@ -32,6 +32,9 @@ def run(
     input: Path = typer.Option(...),
     output: Path = typer.Option(...),
     templates: Path | None = typer.Option(None),
+    fill_mode: str = typer.Option("auto"),
+    ocr_model: str = typer.Option("gpt-4o"),
+    field_model: str | None = typer.Option(None),
 ) -> None:
     """Run full pipeline and write one JSON artifact."""
     if not input.exists():
@@ -41,8 +44,19 @@ def run(
     if not template_dir.exists() or not template_dir.is_dir():
         typer.echo(f"Template directory not found: {template_dir}")
         raise typer.Exit(code=2)
+    normalized_fill_mode = fill_mode.lower()
+    if normalized_fill_mode not in {"auto", "llm", "regex"}:
+        typer.echo("fill_mode must be one of: auto, llm, regex")
+        raise typer.Exit(code=2)
     created_at = "1970-01-01T00:00:00Z"
-    package = run_pipeline(input_path=input, template_dir=template_dir, created_at=created_at)
+    package = run_pipeline(
+        input_path=input,
+        template_dir=template_dir,
+        created_at=created_at,
+        fill_mode=normalized_fill_mode,
+        ocr_model=ocr_model,
+        field_model=field_model,
+    )
     output_path = _versioned_output_path(output, input.stem)
     output_path.write_text(dump_model_json(package), encoding="utf-8")
     typer.echo(str(output_path))
@@ -102,6 +116,11 @@ def doctor(format: str = typer.Option("text")) -> None:
         except Exception:
             payload[f"{pkg}_installed"] = False
             blocking = True
+    try:
+        __import__("openai")
+        payload["openai_installed"] = True
+    except Exception:
+        payload["openai_installed"] = False
 
     has_openai_key = bool(os.environ.get("OPENAI_API_KEY"))
     payload["openai_api_key_present"] = has_openai_key
@@ -114,6 +133,7 @@ def doctor(format: str = typer.Option("text")) -> None:
         lines.append(f"python_version={payload['python_version']} ok={payload['python_ok']}")
         lines.append(f"pydantic={'installed' if payload['pydantic_installed'] else 'missing'}")
         lines.append(f"typer={'installed' if payload['typer_installed'] else 'missing'}")
+        lines.append(f"openai={'installed' if payload['openai_installed'] else 'missing'}")
         lines.append(f"openai_api_key={'present' if has_openai_key else 'missing'}")
         lines.append(
             "poppler="

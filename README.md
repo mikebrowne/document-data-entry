@@ -24,15 +24,34 @@ Deterministic document review engine (CLI + library) for single-document process
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -e .[dev]
+pip install -e .[dev,ocr]
 pytest
 ```
 
 ## CLI
 
 ```powershell
-docreview run --input <file> --output <folder>
+docreview run --input <file> --output <folder> --fill-mode auto --ocr-model gpt-4o --field-model gpt-4.1-mini
 docreview summarize --input <json>
 docreview validate-json --input <json>
 docreview doctor
 ```
+
+## Field population modes
+
+- `--fill-mode auto` (default): use LLM field fill when possible; fallback to regex.
+- `--fill-mode llm`: require LLM field fill; unresolved setup becomes a blocking handoff.
+- `--fill-mode regex`: force deterministic regex-only normalization.
+
+Model configuration:
+
+- `--ocr-model` controls PDF/image OCR model (OpenAI vision path).
+- `--field-model` controls text-to-structured field filling.
+- If `--field-model` is omitted, `docreview` uses the OCR model.
+
+Environment fallbacks:
+
+- `DOCREVIEW_FILL_MODE`
+- `DOCREVIEW_OCR_MODEL`
+- `DOCREVIEW_FIELD_MODEL`
+- `OPENAI_API_KEY`
