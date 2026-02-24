@@ -83,10 +83,13 @@ def openai_field_fill(
             model=model,
             input=[{"role": "user", "content": content}],
             temperature=0,
+            text={"format": {"type": "json_object"}},
         )
         raw = response.output_text.strip()
         if not raw:
             raise FieldFillError("LLM returned empty output for field extraction.")
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
         payload = json.loads(raw)
         parsed = FieldFillResponse.model_validate(payload)
     except FieldFillError:
